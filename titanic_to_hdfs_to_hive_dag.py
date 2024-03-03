@@ -54,30 +54,18 @@ with DAG(
 
         prepare_file_name >> download_titanic_dataset >> dataset_to_hdfs
 
-    with TaskGroup("prepare_table") as prepare_table:
-        drop_hive_table_managed = HiveOperator(
-            task_id='drop_hive_table_managed',
-            hql='DROP TABLE titanic_data;',
-        )
+    create_hive_table_managed = HiveOperator(
+        task_id='create_hive_table_managed',
+        hql='''CREATE TABLE IF NOT EXISTS titanic_data(Survived INT,Pclass INT,Name STRING,Sex STRING,Age INT,SibSp INT,ParCh INT,Fare DOUBLE)
+        ROW FORMAT DELIMITED
+        fields terminated by ','
+        STORED AS TEXTFILE
+        location 'hdfs://localhost:9000/datasets/'
+        tblproperties("skip.header.line.count"="1");''',
+    )
 
-        create_hive_table_managed = HiveOperator(
-            task_id='create_hive_table_managed',
-            hql='''CREATE TABLE IF NOT EXISTS titanic_data(Survived INT,Pclass INT,Name STRING,Sex STRING,Age INT,SibSp INT,ParCh INT,Fare DOUBLE)
-            ROW FORMAT DELIMITED
-            fields terminated by ','
-            STORED AS TEXTFILE
-            location 'hdfs://localhost:9000/datasets/'
-            tblproperties("skip.header.line.count"="1");''',
-        )
-
-        drop_hive_table_managed >> create_hive_table_managed
 
     with TaskGroup("prepare_table_part") as prepare_table_part:
-        drop_hive_table_part = HiveOperator(
-            task_id='drop_hive_table_part',
-            hql='DROP TABLE IF EXISTS titanic_data_part;',
-        )
-
         create_hive_table_part = HiveOperator(
             task_id='create_hive_table_part',
             hql='''CREATE TABLE IF NOT EXISTS titanic_data_part(Survived INT,Name STRING,Sex STRING,Age INT,SibSp INT,ParCh INT,Fare DOUBLE)
@@ -98,7 +86,7 @@ with DAG(
             hql='DROP TABLE titanic_data;',
         )
 
-        drop_hive_table_part >> create_hive_table_part >> load_titanic_data_part >> drop_hive_table_managed
+        create_hive_table_part >> load_titanic_data_part >> drop_hive_table_managed
 
     show_avg_fare = BashOperator(
         task_id='show_avg_fare',
@@ -119,6 +107,6 @@ with DAG(
         {{ ti.xcom_pull(task_ids='prepare_message', key='telegram_message')}}''',
     )
 
-    prepare_data >> prepare_table >> prepare_table_part >> show_avg_fare
+    prepare_data >> create_hive_table_managed >> prepare_table_part >> show_avg_fare
 
     show_avg_fare >> prepare_message >> send_result_telegram
