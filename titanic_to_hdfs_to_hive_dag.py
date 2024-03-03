@@ -55,8 +55,8 @@ with DAG(
         prepare_file_name >> download_titanic_dataset >> dataset_to_hdfs
 
     with TaskGroup("prepare_table") as prepare_table:
-        drop_hivi_table_managed = HiveOperator(
-            task_id='drop_hivi_table_managed',
+        drop_hive_table_managed = HiveOperator(
+            task_id='drop_hive_table_managed',
             hql='DROP TABLE titanic_data;',
         )
 
@@ -70,11 +70,11 @@ with DAG(
             tblproperties("skip.header.line.count"="1");''',
         )
 
-        drop_hivi_table_managed >> create_hive_table_managed
+        drop_hive_table_managed >> create_hive_table_managed
 
     with TaskGroup("prepare_table_part") as prepare_table_part:
-        drop_hivi_table_part = HiveOperator(
-            task_id='drop_hivi_table_part',
+        drop_hive_table_part = HiveOperator(
+            task_id='drop_hive_table_part',
             hql='DROP TABLE IF EXISTS titanic_data_part;',
         )
 
@@ -93,12 +93,12 @@ with DAG(
             FROM titanic_data;''',
         )
 
-        drop_hivi_table_managed = HiveOperator(
-            task_id='drop_hivi_table_managed',
+        drop_hive_table_managed = HiveOperator(
+            task_id='drop_hive_table_managed',
             hql='DROP TABLE titanic_data;',
         )
 
-        drop_hivi_table_part >> create_hive_table_part >> load_titanic_data_part >> drop_hivi_table_managed
+        drop_hive_table_part >> create_hive_table_part >> load_titanic_data_part >> drop_hive_table_managed
 
     show_avg_fare = BashOperator(
         task_id='show_avg_fare',
