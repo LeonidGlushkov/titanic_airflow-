@@ -41,15 +41,16 @@ with DAG(
 
         download_titanic_dataset = BashOperator(
             task_id='download_titanic_dataset',
-            bash_command=''' wget -q https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv -O {{ ti.xcom_pull(task_ids=\'prepare_file_name\', key=\'file_name\') }}  && \
-            mv `realpath {{ ti.xcom_pull(task_ids=\'prepare_file_name\', key=\'file_name\') }}` /home/hduser/ ''',
+            bash_command=''' mkdir -p /home/hduser/download/ && \
+            wget -q https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv -O \
+            /home/hduser/download/{{ ti.xcom_pull(task_ids=\'prepare_file_name\', key=\'file_name\') }} ''',
         )
 
         dataset_to_hdfs = BashOperator(
             task_id='dataset_to_hdfs',
             bash_command=''' hdfs dfs -mkdir -p /datasets/ && \
-            hdfs dfs -put ~/{{ ti.xcom_pull(task_ids=\'prepare_file_name\', key=\'file_name\') }} /datasets/ && \
-            rm ~/{{ ti.xcom_pull(task_ids=\'prepare_file_name\', key=\'file_name\') }} ''',
+            hdfs dfs -put ~/download/{{ ti.xcom_pull(task_ids=\'prepare_file_name\', key=\'file_name\') }} /datasets/ && \
+            rm ~/download/{{ ti.xcom_pull(task_ids=\'prepare_file_name\', key=\'file_name\') }} ''',
         )
 
         prepare_file_name >> download_titanic_dataset >> dataset_to_hdfs
