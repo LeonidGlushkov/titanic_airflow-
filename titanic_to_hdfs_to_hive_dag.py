@@ -1,5 +1,4 @@
 import datetime as dt
-from datetime import datetime
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -23,9 +22,10 @@ def format_message(**kwargs):
     kwargs['ti'].xcom_push(key='telegram_message', value=formatted)
 
 
-def prepare_namefile(ti):
-    file_name = 'titanic-' + str(int(datetime.now().timestamp())) + '.csv'
-    ti.xcom_push(key='file_name', value=file_name)
+def prepare_namefile(**kwargs):
+    execution_date = int(dt.datetime.timestamp(kwargs['execution_date']))
+    file_name = 'titanic-' + str(execution_date) + '.csv'
+    kwargs['ti'].xcom_push(key='file_name', value=file_name)
 
 
 with DAG(
