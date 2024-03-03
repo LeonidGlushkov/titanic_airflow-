@@ -7,7 +7,6 @@ from airflow.providers.apache.hive.operators.hive import HiveOperator
 from airflow.providers.telegram.operators.telegram import TelegramOperator
 from airflow.utils.task_group import TaskGroup
 
-
 default_args = {
     'owner': 'LEONID',
     'start_date': dt.datetime(2024, 2, 25),
@@ -23,10 +22,10 @@ def format_message(**kwargs):
     print(format_message)
     kwargs['ti'].xcom_push(key='telegram_message', value=formatted)
 
+
 def prepare_namefile(ti):
     file_name = 'titanic-' + str(int(datetime.now().timestamp())) + '.csv'
     ti.xcom_push(key='file_name', value=file_name)
-
 
 
 with DAG(
@@ -34,9 +33,7 @@ with DAG(
         schedule_interval=None,
         default_args=default_args,
 ) as dag:
-
     with TaskGroup(group_id='prepare_data', prefix_group_id=False) as prepare_data:
-
         prepare_file_name = PythonOperator(
             task_id='prepare_file_name',
             python_callable=prepare_namefile,
@@ -57,32 +54,25 @@ with DAG(
 
         prepare_file_name >> download_titanic_dataset >> dataset_to_hdfs
 
-
     with TaskGroup("prepare_table") as prepare_table:
-
-        drop_hivi_table = HiveOperator(
-            task_id='drop_hivi_table',
+        drop_hivi_table_managed = HiveOperator(
+            task_id='drop_hivi_table_managed',
             hql='DROP TABLE titanic_data;',
         )
 
-        create_hive_table = HiveOperator(
-            task_id='create_hive_table',
+        create_hive_table_managed = HiveOperator(
+            task_id='create_hive_table_managed',
             hql='''CREATE TABLE IF NOT EXISTS titanic_data(Survived INT,Pclass INT,Name STRING,Sex STRING,Age INT,SibSp INT,ParCh INT,Fare DOUBLE)
             ROW FORMAT DELIMITED
             fields terminated by ','
             STORED AS TEXTFILE
+            location 'hdfs://localhost:9000/datasets/'
             tblproperties("skip.header.line.count"="1");''',
         )
 
-        drop_hivi_table >> create_hive_table
-
-    load_titanic_hive = HiveOperator(
-        task_id='load_titanic_hive',
-        hql=''' LOAD DATA INPATH 'hdfs://localhost:9000/datasets/{{ ti.xcom_pull(task_ids=\'prepare_file_name\', key=\'file_name\') }}' INTO TABLE titanic_data;''',
-    )
+        drop_hivi_table_managed >> create_hive_table_managed
 
     with TaskGroup("prepare_table_part") as prepare_table_part:
-
         drop_hivi_table_part = HiveOperator(
             task_id='drop_hivi_table_part',
             hql='DROP TABLE IF EXISTS titanic_data_part;',
@@ -103,13 +93,12 @@ with DAG(
             FROM titanic_data;''',
         )
 
-        drop_hivi_table_old = HiveOperator(
-            task_id='drop_hivi_table_old',
+        drop_hivi_table_managed = HiveOperator(
+            task_id='drop_hivi_table_managed',
             hql='DROP TABLE titanic_data;',
         )
 
-        drop_hivi_table_part >> create_hive_table_part >> load_titanic_data_part >> drop_hivi_table_old
-
+        drop_hivi_table_part >> create_hive_table_part >> load_titanic_data_part >> drop_hivi_table_managed
 
     show_avg_fare = BashOperator(
         task_id='show_avg_fare',
@@ -130,6 +119,6 @@ with DAG(
         {{ ti.xcom_pull(task_ids='prepare_message', key='telegram_message')}}''',
     )
 
-    prepare_data >> prepare_table >> load_titanic_hive >> prepare_table_part >> show_avg_fare
+    prepare_data >> prepare_table >> prepare_table_part >> show_avg_fare
 
     show_avg_fare >> prepare_message >> send_result_telegram
