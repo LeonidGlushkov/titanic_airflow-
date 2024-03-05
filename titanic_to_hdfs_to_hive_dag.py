@@ -5,6 +5,7 @@ from airflow.operators.bash import BashOperator
 from airflow.providers.apache.hive.operators.hive import HiveOperator
 from airflow.providers.telegram.operators.telegram import TelegramOperator
 from airflow.utils.task_group import TaskGroup
+from airflow.utils.trigger_rule import TriggerRule
 
 default_args = {
     'owner': 'LEONID',
@@ -108,6 +109,14 @@ with DAG(
         {{ ti.xcom_pull(task_ids='prepare_message', key='telegram_message')}}''',
     )
 
+    send_faled_telegram = TelegramOperator(
+        task_id='send_faled_telegram',
+        telegram_conn_id='telegram_conn_id',
+        chat_id='417953408',
+        trigger_rule=TriggerRule.ONE_FAILED,
+        text='''Pipeline {{execution_date.int_timestamp}} ended with error.''',
+    )
+
     prepare_data >> create_hive_table_managed >> prepare_table_part >> show_avg_fare
 
-    show_avg_fare >> prepare_message >> send_result_telegram
+    show_avg_fare >> prepare_message >> send_result_telegram >> send_faled_telegram
